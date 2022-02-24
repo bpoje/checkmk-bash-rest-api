@@ -143,3 +143,16 @@ Execute "fix_all" discovery on id "host2":
 $ cat ~/.sec/secret | ./checkmk.sh discover test automation host2 fix_all
 ```
 
+## Example: Set tag
+Set or change tags.
+
+First find the etag of host2:
+```
+$ cat ~/.sec/secret | ./checkmk.sh get test automation host2 | jq .etag
+"552cfcd33a80e98d516a03efaebfaeb03fc3830d50a8b1fb27ec473c29f32b1a"
+```
+
+Then set tag on host2: set tag value "https" from tag group "tag_tcp_test"
+```
+$ cat ~/.sec/secret | ./checkmk.sh settag test automation host2 "552cfcd33a80e98d516a03efaebfaeb03fc3830d50a8b1fb27ec473c29f32b1a" tag_tcp_test https
+```
