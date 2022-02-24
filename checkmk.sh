@@ -24,6 +24,15 @@ function usage()
 	echo -e "\n\t\tExample (get host myhost1 from checkmk test site):"
 	echo -e "\t\t\$ ${GREEN}$(basename $0) get test automation myhost1${NC}"
 
+	echo -e "\n\t${RED}Set tag on host:${NC}"
+	echo -e "\t\$ ${ORANGE}$(basename $0) settag site user host etag tag_group tag_group_value${NC}"
+	echo -e "\t\tsite = checkmk site name"
+        echo -e "\t\tuser = username for connection"
+        echo -e "\t\thost = checkmk hostname"
+	echo -e "\t\tetag = etag value of hostname (use get to acquire this value)"
+        echo -e "\t\ttag_group = name of tag group"
+        echo -e "\t\ttag_group_value = new value from tag_group that is set for hostname"
+
 	echo -e "\n\t${RED}Create checkmk host in folder:${NC}"
 	echo -e "\t\$ ${ORANGE}$(basename $0) create site user host folder [ip]${NC}"
 	echo -e "\t\tsite = checkmk site name"
@@ -97,17 +106,26 @@ function get()
 {
 	HEADER=$(echo "Authorization: Bearer ${USER} ${SECRET}")
 
-	RES=$(echo "$HEADER" | curl -w "\n%{http_code}" -X "GET" "${URL}/objects/host_config/${HOST}?effective_attributes=true" -H "accept: application/json" -H @- 2>/dev/null)
+	RES=$(echo "$HEADER" | curl -i -w "\n%{http_code}" -X "GET" "${URL}/objects/host_config/${HOST}?effective_attributes=true" -H "accept: application/json" -H @- 2>/dev/null)
 
-	#Get return code
+	#Get return code from last line
 	RC=$(echo "$RES" | tail -n1)
 
-	#Get result
-	CONT=$(echo "$RES" | head -n1)
+	#Get result from last-1 line
+	CONT=$(echo "$RES" | tail -n2 | head -n1)
+
+	#Get header (every line except last two)
+	HEADER_RCV=$(echo "$RES" | head -n -2 | dos2unix)
+
+	#Get etag from header
+	ETAG=$(echo "$HEADER_RCV" | grep -i "etag" | cut -d' ' -f2 | tr -d '"')
+
+	#echo "etag: ${ETAG}"
 
 	#OK
 	if (( "$RC" == 200 )); then
-		echo -e "{\"ok\" : ${CONT} }"
+		#echo -e "{\"ok\" : ${CONT} }"
+		echo -e "{ \"rc\" : \"${RC}\", \"etag\" : \"${ETAG}\", \"ok\" : ${CONT} }"
 
 	#Wrong secret
         elif (( "$RC" == 401 )); then
@@ -117,6 +135,40 @@ function get()
 	#Host not found
         else
 		echo "${CONT}"
+        fi
+}
+
+function settag()
+{
+	HEADER=$(echo "Authorization: Bearer ${USER} ${SECRET}")
+
+	DATA=$(echo "{ \"attributes\": { \"${TAG_GROUP}\": \"${TAG_GROUP_VALUE}\" }, \"update_attributes\": { \"${TAG_GROUP}\": \"${TAG_GROUP_VALUE}\" }}" )
+	#echo "DATA: ${DATA}"
+
+	RES=$(echo "$HEADER" | curl -i -w "\n%{http_code}" -X "PUT" "${URL}/objects/host_config/${HOST}" -H "accept: application/json" -H "If-Match: $ETAG" -H "Content-Type: application/json" -H @- -d "$DATA"  2>/dev/null)
+
+	#Get return code from last line
+        RC=$(echo "$RES" | tail -n1)
+
+        #Get result from last-1 line
+        CONT=$(echo "$RES" | tail -n2 | head -n1)
+
+        #Get header (every line except last two)
+        HEADER_RCV=$(echo "$RES" | head -n -2 | dos2unix)
+
+	#OK
+        if (( "$RC" == 200 )); then
+                #echo -e "{\"ok\" : ${CONT} }"
+                echo -e "{ \"rc\" : \"${RC}\", \"etag\" : \"${ETAG}\", \"ok\" : ${CONT} }"
+
+        #Wrong secret
+        elif (( "$RC" == 401 )); then
+                echo "{\"failure\" : \"wrong username or secret!\"}"
+                exit 1
+
+        #Host not found
+        else
+                echo "${CONT}"
         fi
 }
 
@@ -522,6 +574,41 @@ case "$OP" in
 
 		get
 		;;
+	
+	"settag")
+		#echo "settag"
+                if (( "$#" != 7 )); then
+                        usage
+                        exit 1
+                fi
+
+                URL_SITE=$2
+                USER=$3
+                HOST=$4
+		ETAG=$5
+		TAG_GROUP=$6
+		TAG_GROUP_VALUE=$7
+
+                setValidateURL "${URL_SITE}"
+                getSecret
+
+		if [ -z "$ETAG" ]; then
+			echo "ETAG cannot be empty (use get to acquire ETAG)!"
+			exit 1
+		fi
+
+		if [ -z "$TAG_GROUP" ]; then
+			echo "tag group field cannot be empty"
+			exit 1
+		fi
+
+		if [ -z "$TAG_GROUP_VALUE" ]; then
+			echo "tag group value cannot be empty"
+			exit 1
+		fi
+
+                settag
+                ;;
 
 	"discover")
 		#echo "discover"
