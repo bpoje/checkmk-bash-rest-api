@@ -11,6 +11,7 @@ Supported:
 * Delete id
 * List folders and ids in specific folder
 * List only folder or only ids
+* Set or change tags
 
 For better view of json, pipe the output of this command to jq (command line JSON processor). \
 You can pipe secret to stdin of this process to avoid entering secret key every time. \
