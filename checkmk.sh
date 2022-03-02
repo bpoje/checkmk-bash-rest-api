@@ -142,7 +142,11 @@ function settag()
 {
 	HEADER=$(echo "Authorization: Bearer ${USER} ${SECRET}")
 
-	DATA=$(echo "{ \"attributes\": { \"${TAG_GROUP}\": \"${TAG_GROUP_VALUE}\" }, \"update_attributes\": { \"${TAG_GROUP}\": \"${TAG_GROUP_VALUE}\" }}" )
+	#Would clear all attributes not mentioned in request body
+	#DATA=$(echo "{ \"attributes\": { \"${TAG_GROUP}\": \"${TAG_GROUP_VALUE}\" }, \"update_attributes\": { \"${TAG_GROUP}\": \"${TAG_GROUP_VALUE}\" }}" )
+
+	#Updates only tag
+	DATA=$(echo "{ \"update_attributes\": { \"${TAG_GROUP}\": \"${TAG_GROUP_VALUE}\" }}" )
 	#echo "DATA: ${DATA}"
 
 	RES=$(echo "$HEADER" | curl -i -w "\n%{http_code}" -X "PUT" "${URL}/objects/host_config/${HOST}" -H "accept: application/json" -H "If-Match: $ETAG" -H "Content-Type: application/json" -H @- -d "$DATA"  2>/dev/null)
