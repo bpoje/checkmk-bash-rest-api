@@ -24,6 +24,24 @@ function usage()
 	echo -e "\n\t\tExample (get host myhost1 from checkmk test site):"
 	echo -e "\t\t\$ ${GREEN}$(basename $0) get test automation myhost1${NC}"
 
+	echo -e "\n\t${RED}Get information about checkmk services:${NC}"
+	echo -e "\t\$ ${ORANGE}$(basename $0) services site user host${NC}"
+	echo -e "\t\tsite = checkmk site name"
+	echo -e "\t\tuser = username for connection"
+	echo -e "\t\thost = checkmk hostname"
+	echo -e "\t\tNote: path is not required as hosts have unique IDs"
+	echo -e "\n\t\tExample (services host myhost1 from checkmk test site):"
+	echo -e "\t\t\$ ${GREEN}$(basename $0) services test automation myhost1${NC}"
+
+	echo -e "\n\t${RED}Get information about checkmk service problems:${NC}"
+	echo -e "\t\$ ${ORANGE}$(basename $0) service_problems site user host${NC}"
+	echo -e "\t\tsite = checkmk site name"
+	echo -e "\t\tuser = username for connection"
+	echo -e "\t\thost = checkmk hostname"
+	echo -e "\t\tNote: path is not required as hosts have unique IDs"
+	echo -e "\n\t\tExample (service_problems host myhost1 from checkmk test site):"
+	echo -e "\t\t\$ ${GREEN}$(basename $0) service_problems test automation myhost1${NC}"
+
 	echo -e "\n\t${RED}Set tag on host:${NC}"
 	echo -e "\t\$ ${ORANGE}$(basename $0) settag site user host etag tag_group tag_group_value${NC}"
 	echo -e "\t\tsite = checkmk site name"
@@ -100,6 +118,93 @@ function usage()
 	echo -e ""
 	echo -e "For better view, pipe the output of this command to ${RED}jq${NC} (command line JSON processor)."
 	echo -e "Don't end paths with extra /. For example \"/folder1\" is ok, while \"/folder1/\" is not."
+}
+
+function service_problems()
+{
+	HEADER=$(echo "Authorization: Bearer ${USER} ${SECRET}")
+
+  RES=$(echo "$HEADER" | curl -G -i -w "\n%{http_code}" \
+    -X "GET" "${URL}domain-types/service/collections/all?host_name=${HOST}" \
+    --data-urlencode "query={\"op\": \"!=\", \"left\": \"state\", \"right\": \"0\"}" \
+    --data-urlencode 'columns=host_name' \
+    --data-urlencode 'columns=description' \
+    --data-urlencode 'columns=state' \
+    --data-urlencode 'columns=hard_state' \
+    --data-urlencode 'columns=acknowledged' \
+    --data-urlencode 'columns=plugin_output' \
+    -H "accept: application/json" -H @- 2>/dev/null)
+
+	#Get return code from last line
+	RC=$(echo "$RES" | tail -n1)
+
+	#Get result from last-1 line
+	CONT=$(echo "$RES" | tail -n2 | head -n1)
+
+	#Get header (every line except last two)
+	HEADER_RCV=$(echo "$RES" | head -n -2 | dos2unix)
+
+	#Get etag from header
+	ETAG=$(echo "$HEADER_RCV" | grep -i "etag" | cut -d' ' -f2 | tr -d '"')
+
+	#echo "etag: ${ETAG}"
+
+	#OK
+	if (( "$RC" == 200 )); then
+		#echo -e "{\"ok\" : ${CONT} }"
+		echo -e "{ \"rc\" : \"${RC}\", \"etag\" : \"${ETAG}\", \"ok\" : ${CONT} }"
+
+	#Wrong secret
+        elif (( "$RC" == 401 )); then
+                echo "{\"failure\" : \"wrong username or secret!\"}"
+                exit 1
+
+	#Host not found
+        else
+		echo "${CONT}"
+        fi
+}
+
+function services()
+{
+	HEADER=$(echo "Authorization: Bearer ${USER} ${SECRET}")
+
+  RES=$(echo "$HEADER" | curl -G -i -w "\n%{http_code}" \
+    -X "GET" "${URL}domain-types/service/collections/all?host_name=${HOST}" \
+    --data-urlencode 'columns=host_name' \
+    --data-urlencode 'columns=description' \
+    --data-urlencode 'columns=check_command_expanded' \
+    --data-urlencode 'columns=plugin_output' \
+    -H "accept: application/json" -H @- 2>/dev/null)
+
+	#Get return code from last line
+	RC=$(echo "$RES" | tail -n1)
+
+	#Get result from last-1 line
+	CONT=$(echo "$RES" | tail -n2 | head -n1)
+
+	#Get header (every line except last two)
+	HEADER_RCV=$(echo "$RES" | head -n -2 | dos2unix)
+
+	#Get etag from header
+	ETAG=$(echo "$HEADER_RCV" | grep -i "etag" | cut -d' ' -f2 | tr -d '"')
+
+	#echo "etag: ${ETAG}"
+
+	#OK
+	if (( "$RC" == 200 )); then
+		#echo -e "{\"ok\" : ${CONT} }"
+		echo -e "{ \"rc\" : \"${RC}\", \"etag\" : \"${ETAG}\", \"ok\" : ${CONT} }"
+
+	#Wrong secret
+        elif (( "$RC" == 401 )); then
+                echo "{\"failure\" : \"wrong username or secret!\"}"
+                exit 1
+
+	#Host not found
+        else
+		echo "${CONT}"
+        fi
 }
 
 function get()
@@ -562,6 +667,37 @@ OP=$(echo "$1" | tr '[:upper:]' '[:lower:]')
 
 #Switch by operation:
 case "$OP" in
+  "service_problems")
+	if (( "$#" != 4 )); then
+			usage
+			exit 1
+		fi
+	
+		URL_SITE=$2
+		USER=$3
+		HOST=$4
+
+		setValidateURL "${URL_SITE}"
+		getSecret
+
+		service_problems
+		;;
+  "services")
+	if (( "$#" != 4 )); then
+			usage
+			exit 1
+		fi
+	
+		URL_SITE=$2
+		USER=$3
+		HOST=$4
+
+		setValidateURL "${URL_SITE}"
+		getSecret
+
+		services
+		;;
+	  
 	"get")
 		#echo "get"
 		if (( "$#" != 4 )); then
