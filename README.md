@@ -5,6 +5,8 @@ Script was tested using user "automation" with secret key (authentication set to
 
 Supported:
 * Get information about Check MK id (hostname entry)
+* Get information about Check MK services of host
+* Get information about problematic Check MK services of host
 * Create new id in specific folder and set DCHP or static IPv4
 * Perform discovery on id using one of the many discovery types: 'new', 'remove', 'fix_all', 'refresh' or 'only_host_labels'
 * Activate changes on site with the possibility of forcing foreign user changes
@@ -159,4 +161,14 @@ Then set tag on host2: set tag value "https" from tag group "tag_tcp_test"
 !! it will be named "tag_servis" here!
 ```
 $ cat ~/.sec/secret | ./checkmk.sh settag test automation host2 "552cfcd33a80e98d516a03efaebfaeb03fc3830d50a8b1fb27ec473c29f32b1a" tag_tcp_test https
+```
+
+## Example: Get information about services of host
+```
+$ cat ~/.sec/secret | ./checkmk.sh services test automation host1 | jq .
+```
+
+## Example: Get information about problematic services of host
+```
+$ cat ~/.sec/secret | ./checkmk.sh service_problems test automation host1 | jq .
 ```
